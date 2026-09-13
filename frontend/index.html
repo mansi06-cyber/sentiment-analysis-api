@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sentiment Analysis API - Web Interface</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Google Fonts for professional typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-content">
+        <div class="brand">
+          <div class="brand-icon">✨</div>
+          <div>
+            <h1 class="brand-title">Sentiment Analysis Studio</h1>
+            <p class="brand-subtitle">Powered by CardiffNLP RoBERTa &amp; FastAPI</p>
+          </div>
+        </div>
+
+        <!-- Real-time API Health Indicator -->
+        <div class="health-indicator" id="healthIndicator" title="Checking server status...">
+          <span class="status-dot status-loading" id="statusDot"></span>
+          <span class="status-text" id="statusText">Connecting to API...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs" role="tablist">
+      <button class="tab-btn active" id="singleTabBtn" role="tab" aria-selected="true" aria-controls="singleTab">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        Single Text Analysis
+      </button>
+      <button class="tab-btn" id="batchTabBtn" role="tab" aria-selected="false" aria-controls="batchTab">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+        </svg>
+        Batch Analysis <span class="badge-pill">Up to 10</span>
+      </button>
+    </nav>
+
+    <!-- Main Content Panels -->
+    <main class="main-content">
+      <!-- Alert banner for global API issues -->
+      <div class="alert-box alert-error hidden" id="connectionAlert">
+        <div class="alert-icon">⚠️</div>
+        <div class="alert-message">
+          <strong>Cannot connect to the FastAPI server at <code id="apiBaseUrlDisplay">http://127.0.0.1:8000</code></strong>.
+          Make sure your server is running: <code>.\venv\Scripts\uvicorn.exe app.main:app --reload</code>
+        </div>
+      </div>
+
+      <!-- ================= SINGLE ANALYSIS TAB ================= -->
+      <section class="tab-panel active" id="singleTab" role="tabpanel" aria-labelledby="singleTabBtn">
+        <div class="card form-card">
+          <div class="card-header">
+            <h2>Analyze Single Text</h2>
+            <p class="text-muted">Enter any English text between 1 and 500 words to evaluate its sentiment.</p>
+          </div>
+
+          <!-- Quick Samples -->
+          <div class="sample-chips">
+            <span class="sample-label">Quick Try:</span>
+            <button type="button" class="chip" data-sample="positive">😊 Positive Sample</button>
+            <button type="button" class="chip" data-sample="neutral">😐 Neutral Sample</button>
+            <button type="button" class="chip" data-sample="negative">😞 Negative Sample</button>
+          </div>
+
+          <!-- Text Form -->
+          <form id="singleForm">
+            <div class="form-group">
+              <label for="singleTextInput">Input Text</label>
+              <textarea 
+                id="singleTextInput" 
+                rows="5" 
+                placeholder="Type or paste your text here (e.g. 'I am truly impressed with the speed and reliability of this product!')..."
+                required
+              ></textarea>
+              <div class="input-meta">
+                <span class="word-counter" id="singleWordCounter">0 words (1 - 500 allowed)</span>
+                <span class="char-counter" id="singleCharCounter">0 characters</span>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="singleSubmitBtn">
+                <span class="btn-spinner hidden" id="singleSpinner"></span>
+                <span class="btn-text">Analyze Sentiment</span>
+              </button>
+              <button type="button" class="btn btn-secondary" id="singleClearBtn">Clear</button>
+            </div>
+          </form>
+
+          <!-- Single Analysis Error Notice -->
+          <div class="alert-box alert-error hidden" id="singleErrorBox">
+            <div class="alert-icon">❌</div>
+            <div class="alert-message" id="singleErrorMessage"></div>
+          </div>
+        </div>
+
+        <!-- Single Analysis Result Card -->
+        <div class="card result-card hidden" id="singleResultCard">
+          <div class="result-header">
+            <h3>Analysis Result</h3>
+            <span class="result-timestamp" id="singleResultTime"></span>
+          </div>
+
+          <div class="result-body">
+            <!-- Sentiment Highlight Badge -->
+            <div class="sentiment-display">
+              <div class="sentiment-badge-large" id="sentimentBadge">
+                <span class="sentiment-emoji" id="sentimentEmoji"></span>
+                <span class="sentiment-name" id="sentimentName"></span>
+              </div>
+              <div class="sentiment-metrics">
+                <div class="metric-item">
+                  <span class="metric-label">Confidence Score</span>
+                  <span class="metric-value" id="confidenceValue">--%</span>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-label">Word Count</span>
+                  <span class="metric-value" id="wordCountValue">--</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Confidence Progress Bar -->
+            <div class="confidence-bar-container">
+              <div class="confidence-bar-label">
+                <span>Model Confidence</span>
+                <strong id="confidenceBarPercent">0%</strong>
+              </div>
+              <div class="confidence-track">
+                <div class="confidence-fill" id="confidenceFill"></div>
+              </div>
+            </div>
+
+            <!-- Analyzed Text Display -->
+            <div class="analyzed-text-container">
+              <label>Original Input:</label>
+              <blockquote id="analyzedTextPreview"></blockquote>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= BATCH ANALYSIS TAB ================= -->
+      <section class="tab-panel" id="batchTab" role="tabpanel" aria-labelledby="batchTabBtn">
+        <div class="card form-card">
+          <div class="card-header flex-between">
+            <div>
+              <h2>Batch Sentiment Analysis</h2>
+              <p class="text-muted">Analyze up to 10 distinct texts simultaneously with batched PyTorch inference.</p>
+            </div>
+            <button type="button" class="btn btn-outline" id="loadBatchSampleBtn">
+              Load 3 Sample Texts
+            </button>
+          </div>
+
+          <form id="batchForm">
+            <!-- Dynamic Items Container -->
+            <div class="batch-items-container" id="batchItemsContainer">
+              <!-- Item rows injected here via JavaScript -->
+            </div>
+
+            <div class="batch-actions-bar">
+              <button type="button" class="btn btn-secondary" id="addBatchItemBtn">
+                + Add Another Text
+              </button>
+              <span class="batch-count-info" id="batchCountInfo">1 of 10 texts</span>
+            </div>
+
+            <div class="form-actions mt-4">
+              <button type="submit" class="btn btn-primary" id="batchSubmitBtn">
+                <span class="btn-spinner hidden" id="batchSpinner"></span>
+                <span class="btn-text">Analyze Batch</span>
+              </button>
+              <button type="button" class="btn btn-secondary" id="clearBatchBtn">Clear All</button>
+            </div>
+          </form>
+
+          <!-- Batch Analysis Error Notice -->
+          <div class="alert-box alert-error hidden" id="batchErrorBox">
+            <div class="alert-icon">❌</div>
+            <div class="alert-message" id="batchErrorMessage"></div>
+          </div>
+        </div>
+
+        <!-- Batch Results Card -->
+        <div class="card result-card hidden" id="batchResultCard">
+          <div class="result-header flex-between">
+            <div>
+              <h3>Batch Results (<span id="batchTotalCount">0</span> items)</h3>
+              <p class="text-muted" id="batchSummaryStats"></p>
+            </div>
+            <span class="result-timestamp" id="batchResultTime"></span>
+          </div>
+
+          <!-- Batch Summary Badges -->
+          <div class="batch-summary-chips" id="batchSummaryChips">
+            <div class="summary-chip chip-pos">
+              <span class="chip-count" id="countPos">0</span> Positive
+            </div>
+            <div class="summary-chip chip-neu">
+              <span class="chip-count" id="countNeu">0</span> Neutral
+            </div>
+            <div class="summary-chip chip-neg">
+              <span class="chip-count" id="countNeg">0</span> Negative
+            </div>
+          </div>
+
+          <!-- Results List -->
+          <div class="batch-results-list" id="batchResultsList">
+            <!-- Result items rendered dynamically -->
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>Sentiment Analysis API &bull; Built with FastAPI, Hugging Face Transformers &amp; PyTorch</p>
+      <div class="footer-links">
+        <a href="http://127.0.0.1:8000/docs" target="_blank" rel="noopener">Swagger Docs</a>
+        <span class="separator">&bull;</span>
+        <a href="http://127.0.0.1:8000/redoc" target="_blank" rel="noopener">ReDoc</a>
+        <span class="separator">&bull;</span>
+        <a href="http://127.0.0.1:8000/api/health" target="_blank" rel="noopener">API Health</a>
+      </div>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
